@@ -224,13 +224,157 @@ const updatePassword = async (req, res) => {
     res.json("error while hash new password");
   }
 };
+// Lấy tất cả người dùng
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find().select("-password"); // Loại bỏ password
 
+    if (!users.length) {
+      return sendErrorResponse(res, 404, "Không tìm thấy người dùng");
+    }
+
+    res.status(200).json({
+      message: "Lấy danh sách người dùng thành công",
+      users,
+    });
+  } catch (error) {
+    console.error(error);
+    sendErrorResponse(res, 500, "Lỗi khi lấy danh sách người dùng");
+  }
+};
+
+// Lấy thông tin người dùng
+const getUserInfo = async (req, res) => {
+  const userId = req.headers["user-id"];
+  if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+    return sendErrorResponse(res, 400, "userId không hợp lệ");
+  }
+
+  try {
+    const user = await User.findById(userId).select("-password");
+    if (!user) return sendErrorResponse(res, 404, "Người dùng không tồn tại");
+
+    res.status(200).json({ message: "Lấy thông tin thành công", user });
+  } catch (error) {
+    console.error(error);
+    sendErrorResponse(res, 500, "Lỗi khi lấy thông tin người dùng");
+  }
+};
+
+// Cập nhật mật khẩu người dùng
+const updateAccount = async (req, res) => {
+  const { userId } = req.params;
+  const { oldPassword, newPassword, confirmPassword } = req.body;
+
+  if (!newPassword || newPassword.length < 6) {
+    return sendErrorResponse(res, 400, "Mật khẩu mới phải có ít nhất 6 ký tự");
+  }
+  if (newPassword !== confirmPassword) {
+    return sendErrorResponse(res, 400, "Mật khẩu xác nhận không khớp");
+  }
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) return sendErrorResponse(res, 404, "Người dùng không tồn tại");
+
+    if (!(await bcryptjs.compare(oldPassword, user.password))) {
+      return sendErrorResponse(res, 400, "Mật khẩu cũ không chính xác");
+    }
+
+    user.password = await bcryptjs.hash(newPassword, 10);
+    await user.save();
+
+    res.status(200).json({ message: "Cập nhật mật khẩu thành công" });
+  } catch (error) {
+    console.error(error);
+    sendErrorResponse(res, 500, "Lỗi khi cập nhật mật khẩu");
+  }
+};
+
+// Xác minh mật khẩu cũ
+const verifyOldPassword = async (req, res) => {
+  const { userId, oldPassword } = req.body;
+  if (!userId || !oldPassword) {
+    return sendErrorResponse(res, 400, "userId và oldPassword là bắt buộc");
+  }
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) return sendErrorResponse(res, 404, "Người dùng không tồn tại");
+
+    const isMatch = await bcryptjs.compare(oldPassword, user.password);
+    if (!isMatch) return sendErrorResponse(res, 400, "Mật khẩu cũ không chính xác");
+
+    res.status(200).json({ message: "Mật khẩu cũ chính xác" });
+  } catch (error) {
+    console.error(error);
+    sendErrorResponse(res, 500, "Lỗi khi xác minh mật khẩu cũ");
+  }
+};
+
+// Cập nhật thông tin người dùng
+const updateUser = async (req, res) => {
+  const userId = req.user?.id || req.body.userId;
+  if (!userId) return sendErrorResponse(res, 400, "User ID không được cung cấp");
+
+  const { username, email, phone } = req.body;
+  if (!username && !email && !phone) {
+    return sendErrorResponse(res, 400, "Không có thông tin để cập nhật");
+  }
+
+  const errors = {};
+  const validateRegex = {
+    username: /^[a-zA-Z0-9_]{1,10}$/,
+    email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+    phone: /^[0-9]{10,11}$/,
+  };
+
+  if (username && !validateRegex.username.test(username)) {
+    errors.username = "Tên chỉ chứa chữ cái, số và dấu gạch dưới (tối đa 10 ký tự)";
+  }
+  if (email && !validateRegex.email.test(email)) {
+    errors.email = "Email không hợp lệ";
+  }
+  if (phone && !validateRegex.phone.test(phone)) {
+    errors.phone = "Số điện thoại không hợp lệ (10-11 chữ số)";
+  }
+
+  if (Object.keys(errors).length) return res.status(400).json({ errors });
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) return sendErrorResponse(res, 404, "Không tìm thấy người dùng");
+
+    const checkUniqueField = async (field, value, message) => {
+      if (value) {
+        const exists = await User.findOne({ [field]: value, _id: { $ne: userId } });
+        if (exists) return sendErrorResponse(res, 400, message, field);
+        user[field] = value;
+      }
+    };
+
+    await checkUniqueField("username", username, "Tên người dùng đã tồn tại");
+    await checkUniqueField("email", email, "Email đã được sử dụng");
+    await checkUniqueField("phone", phone, "Số điện thoại đã được sử dụng");
+
+    const updatedUser = await user.save();
+    res.status(200).json({ message: "Cập nhật thành công", data: updatedUser });
+  } catch (error) {
+    console.error(error);
+    sendErrorResponse(res, 500, "Lỗi khi cập nhật thông tin người dùng");
+  }
+};
 
 module.exports = {
   signin,
   signup,
   requestResetPassword,
   processResetPassword,
-  updatePassword
+  updatePassword,
+  getAllUsers,
+  getUserInfo,
+  updateAccount,
+  verifyOldPassword,
+  updateUser,
 
 };
