@@ -185,6 +185,8 @@ const requestResetPassword = async (req, res) => {
   }
 };
 
+//http://localhost:5173/reset-password?code=12345
+
 const processResetPassword = async (req, res) => {
   const { code } = req.body;
   if (!code) return;
@@ -203,6 +205,8 @@ const processResetPassword = async (req, res) => {
     }
   }
 };
+
+// client send { newPasword: ... }
 const updatePassword = async (req, res) => {
   const { newPassword } = req.body;
   if (!newPassword) return;
@@ -224,7 +228,7 @@ const updatePassword = async (req, res) => {
     res.json("error while hash new password");
   }
 };
-// Lấy tất cả người dùng
+
 const getAllUsers = async (req, res) => {
   try {
     // Fetch all users from the database
@@ -533,5 +537,4 @@ module.exports = {
   updateAccount,
   verifyOldPassword,
   updateUser,
-
 };
