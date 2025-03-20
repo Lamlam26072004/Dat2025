@@ -227,141 +227,298 @@ const updatePassword = async (req, res) => {
 // Lấy tất cả người dùng
 const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().select("-password"); // Loại bỏ password
+    // Fetch all users from the database
+    const users = await User.find();
 
-    if (!users.length) {
-      return sendErrorResponse(res, 404, "Không tìm thấy người dùng");
+    // If no users are found
+    if (!users || users.length === 0) {
+      return res.status(404).json({
+        message: "No users found",
+      });
     }
 
+    // Return the users
     res.status(200).json({
-      message: "Lấy danh sách người dùng thành công",
+      message: "Users fetched successfully",
       users,
     });
   } catch (error) {
     console.error(error);
-    sendErrorResponse(res, 500, "Lỗi khi lấy danh sách người dùng");
+    res.status(500).json({
+      message: "Error fetching users",
+      error: error.message,
+    });
   }
 };
-
-// Lấy thông tin người dùng
 const getUserInfo = async (req, res) => {
+  // Lấy userId từ header (ví dụ: từ 'user-id' header)
   const userId = req.headers["user-id"];
-  if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-    return sendErrorResponse(res, 400, "userId không hợp lệ");
+
+  if (!userId) {
+    return res.status(400).json({
+      message: "userId is required in header",
+    });
+  }
+
+  // Kiểm tra xem userId có phải là ObjectId hợp lệ không
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({
+      message: "Invalid userId format",
+    });
   }
 
   try {
-    const user = await User.findById(userId).select("-password");
-    if (!user) return sendErrorResponse(res, 404, "Người dùng không tồn tại");
-
-    res.status(200).json({ message: "Lấy thông tin thành công", user });
-  } catch (error) {
-    console.error(error);
-    sendErrorResponse(res, 500, "Lỗi khi lấy thông tin người dùng");
-  }
-};
-
-// Cập nhật mật khẩu người dùng
-const updateAccount = async (req, res) => {
-  const { userId } = req.params;
-  const { oldPassword, newPassword, confirmPassword } = req.body;
-
-  if (!newPassword || newPassword.length < 6) {
-    return sendErrorResponse(res, 400, "Mật khẩu mới phải có ít nhất 6 ký tự");
-  }
-  if (newPassword !== confirmPassword) {
-    return sendErrorResponse(res, 400, "Mật khẩu xác nhận không khớp");
-  }
-
-  try {
+    // Tìm người dùng trong database
     const user = await User.findById(userId);
-    if (!user) return sendErrorResponse(res, 404, "Người dùng không tồn tại");
 
-    if (!(await bcryptjs.compare(oldPassword, user.password))) {
-      return sendErrorResponse(res, 400, "Mật khẩu cũ không chính xác");
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
     }
 
-    user.password = await bcryptjs.hash(newPassword, 10);
+    // Không trả về password để bảo mật
+    user.password = undefined;
+
+    return res.status(200).json({
+      message: "User information fetched successfully",
+      user,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "Error fetching user information",
+      error: error.message,
+    });
+  }
+};
+const updateAccount = async (req, res) => {
+  const { userId } = req.params; // Lấy userId từ URL params
+  const { oldPassword, newPassword, confirmPassword } = req.body;
+
+  try {
+    // Tìm người dùng trong database
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    // Kiểm tra mật khẩu mới có độ dài tối thiểu (tuỳ chọn)
+    if (newPassword && newPassword.length < 6) {
+      return res
+        .status(400)
+        .json({ message: "Password must be at least 6 characters long" });
+    }
+
+    // Kiểm tra nếu mật khẩu mới trùng với mật khẩu cũ
+    if (newPassword && oldPassword && newPassword === oldPassword) {
+      return res.status(400).json({
+        message: "Mật khẩu mới không được giống với mật khẩu cũ",
+      });
+    }
+
+    // Nếu có mật khẩu mới, kiểm tra mật khẩu cũ và cập nhật mật khẩu
+    if (newPassword) {
+      // Kiểm tra mật khẩu cũ
+      if (!oldPassword) {
+        return res.status(400).json({
+          message: "Old password is required to change password", // Nếu mật khẩu cũ không có, thông báo lỗi
+        });
+      }
+
+      const isOldPasswordValid = await bcryptjs.compare(
+        oldPassword,
+        user.password
+      );
+      if (!isOldPasswordValid) {
+        return res.status(400).json({
+          message: "Mật khẩu cũ không đúng", // Thông báo khi mật khẩu cũ không đúng
+        });
+      }
+
+      // Kiểm tra mật khẩu mới và mật khẩu xác nhận phải giống nhau
+      if (newPassword !== confirmPassword) {
+        return res.status(400).json({
+          message: "Mật khẩu mới và xác nhận mật khẩu không khớp",
+        });
+      }
+
+      // Mã hóa mật khẩu mới
+      const hashedPassword = await bcryptjs.hash(newPassword, 10);
+      user.password = hashedPassword; // Cập nhật mật khẩu mới vào user
+    }
+
+    // Lưu lại thông tin cập nhật vào database
     await user.save();
 
-    res.status(200).json({ message: "Cập nhật mật khẩu thành công" });
+    // Trả về thông tin người dùng sau khi cập nhật (không bao gồm password)
+    user.password = undefined;
+
+    return res.status(200).json({
+      message: "Mật khẩu đã được cập nhật thành công",
+      user,
+    });
   } catch (error) {
     console.error(error);
-    sendErrorResponse(res, 500, "Lỗi khi cập nhật mật khẩu");
+    return res.status(500).json({
+      message: "Có lỗi khi cập nhật mật khẩu",
+      error: error.message,
+    });
   }
 };
 
-// Xác minh mật khẩu cũ
 const verifyOldPassword = async (req, res) => {
   const { userId, oldPassword } = req.body;
+
   if (!userId || !oldPassword) {
-    return sendErrorResponse(res, 400, "userId và oldPassword là bắt buộc");
+    return res.status(400).json({
+      message: "userId và oldPassword là bắt buộc",
+    });
   }
 
   try {
+    // Tìm người dùng trong cơ sở dữ liệu
     const user = await User.findById(userId);
-    if (!user) return sendErrorResponse(res, 404, "Người dùng không tồn tại");
 
+    if (!user) {
+      return res.status(404).json({
+        message: "Người dùng không tồn tại",
+      });
+    }
+
+    // So sánh mật khẩu cũ với mật khẩu trong cơ sở dữ liệu
     const isMatch = await bcryptjs.compare(oldPassword, user.password);
-    if (!isMatch) return sendErrorResponse(res, 400, "Mật khẩu cũ không chính xác");
 
-    res.status(200).json({ message: "Mật khẩu cũ chính xác" });
+    if (!isMatch) {
+      return res.status(400).json({
+        message: "Mật khẩu cũ không chính xác",
+      });
+    }
+
+    // Nếu mật khẩu cũ chính xác
+    return res.status(200).json({
+      message: "Mật khẩu cũ chính xác",
+    });
   } catch (error) {
     console.error(error);
-    sendErrorResponse(res, 500, "Lỗi khi xác minh mật khẩu cũ");
+    return res.status(500).json({
+      message: "Có lỗi xảy ra khi xác minh mật khẩu cũ",
+      error: error.message,
+    });
   }
 };
-
-// Cập nhật thông tin người dùng
 const updateUser = async (req, res) => {
-  const userId = req.user?.id || req.body.userId;
-  if (!userId) return sendErrorResponse(res, 400, "User ID không được cung cấp");
-
-  const { username, email, phone } = req.body;
-  if (!username && !email && !phone) {
-    return sendErrorResponse(res, 400, "Không có thông tin để cập nhật");
-  }
-
-  const errors = {};
-  const validateRegex = {
-    username: /^[a-zA-Z0-9_]{1,10}$/,
-    email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-    phone: /^[0-9]{10,11}$/,
-  };
-
-  if (username && !validateRegex.username.test(username)) {
-    errors.username = "Tên chỉ chứa chữ cái, số và dấu gạch dưới (tối đa 10 ký tự)";
-  }
-  if (email && !validateRegex.email.test(email)) {
-    errors.email = "Email không hợp lệ";
-  }
-  if (phone && !validateRegex.phone.test(phone)) {
-    errors.phone = "Số điện thoại không hợp lệ (10-11 chữ số)";
-  }
-
-  if (Object.keys(errors).length) return res.status(400).json({ errors });
-
   try {
-    const user = await User.findById(userId);
-    if (!user) return sendErrorResponse(res, 404, "Không tìm thấy người dùng");
+    // Lấy userId từ req.user (giải mã từ token) hoặc body (frontend gửi qua localStorage)
+    const userId = req.user?.id || req.body.userId;
+    if (!userId) {
+      return res.status(400).json({ message: "User ID không được cung cấp" });
+    }
 
-    const checkUniqueField = async (field, value, message) => {
-      if (value) {
-        const exists = await User.findOne({ [field]: value, _id: { $ne: userId } });
-        if (exists) return sendErrorResponse(res, 400, message, field);
-        user[field] = value;
+    const { username, email, phone } = req.body; // Lấy các thông tin cần cập nhật
+
+    // Kiểm tra nếu không có dữ liệu nào để cập nhật
+    if (!username && !email && !phone) {
+      return res
+        .status(400)
+        .json({ message: "Không có thông tin để cập nhật" });
+    }
+
+    // **Validate dữ liệu mới**
+    const errors = {};
+
+    if (username) {
+      const usernameRegex = /^[a-zA-Z0-9_]+$/; // Chỉ cho phép chữ cái, số và dấu gạch dưới
+      if (!usernameRegex.test(username)) {
+        errors.username =
+          "Tên không hợp lệ (chỉ chứa chữ cái, số và dấu gạch dưới)";
       }
-    };
+    }
+    if (username.length > 10) {
+      return res.status(400).json({
+        field: "username",
+        message: "Tên người dùng không được vượt quá 10 ký tự!",
+      });
+    }
+    if (email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Kiểm tra định dạng email
+      if (!emailRegex.test(email)) {
+        errors.email = "Email không hợp lệ";
+      }
+    }
 
-    await checkUniqueField("username", username, "Tên người dùng đã tồn tại");
-    await checkUniqueField("email", email, "Email đã được sử dụng");
-    await checkUniqueField("phone", phone, "Số điện thoại đã được sử dụng");
+    if (phone) {
+      const phoneRegex = /^[0-9]{10,11}$/;
+      // Kiểm tra định dạng số điện thoại (10-11 chữ số)
+      if (!phoneRegex.test(phone)) {
+        errors.phone =
+          "Số điện thoại không hợp lệ (chỉ chứa tối đa 10-11 chữ số)";
+      }
+    }
 
+    // Nếu có lỗi validate, trả về thông báo lỗi
+    if (Object.keys(errors).length > 0) {
+      return res.status(400).json({ errors });
+    }
+
+    // Tìm người dùng theo userId
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    }
+
+    // Kiểm tra và gán giá trị mới cho từng trường (nếu có)
+    if (username) {
+      // Kiểm tra xem username đã tồn tại trong hệ thống chưa
+      const existingUsername = await User.findOne({
+        username,
+        _id: { $ne: userId },
+      });
+      if (existingUsername) {
+        return res
+          .status(400)
+          .json({ field: "username", message: "Tên người dùng đã tồn tại" });
+      }
+      user.username = username;
+    }
+
+    if (email) {
+      // Kiểm tra xem email đã tồn tại trong hệ thống chưa
+      const existingEmail = await User.findOne({ email, _id: { $ne: userId } });
+      if (existingEmail) {
+        return res
+          .status(400)
+          .json({ field: "email", message: "Email đã được sử dụng" });
+      }
+      user.email = email;
+    }
+
+    if (phone) {
+      // Kiểm tra xem phone đã tồn tại trong hệ thống chưa
+      const existingPhone = await User.findOne({ phone, _id: { $ne: userId } });
+      if (existingPhone) {
+        return res
+          .status(400)
+          .json({ field: "phone", message: "Số điện thoại đã được sử dụng" });
+      }
+      user.phone = phone;
+    }
+
+    // Lưu thông tin người dùng sau khi cập nhật
     const updatedUser = await user.save();
-    res.status(200).json({ message: "Cập nhật thành công", data: updatedUser });
+
+    return res.status(200).json({
+      message: "Cập nhật thông tin người dùng thành công",
+      data: updatedUser,
+    });
   } catch (error) {
-    console.error(error);
-    sendErrorResponse(res, 500, "Lỗi khi cập nhật thông tin người dùng");
+    // Xử lý lỗi hệ thống
+    return res
+      .status(500)
+      .json({ message: "Đã xảy ra lỗi. Vui lòng thử lại sau." });
   }
 };
 
