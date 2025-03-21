@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 
 const cors = require("cors");
 const dotenv = require("dotenv");
+console.log("🔍 Checking DB_URI:", process.env.DB_URI);
 const morgan = require("morgan");
 
 // Import routes
@@ -22,12 +23,7 @@ const { connectDB } = require("./config/db");
  app.use(express.json());
  app.use(morgan("dev"));
  
- const server = http.createServer(app);
- const io = new Server(server, {
-   cors: {
-     origin: "http://localhost:5173",
-   },
- });
+// const server = http.createServer(app);
  
  
  connectDB(process.env.DB_URI);
