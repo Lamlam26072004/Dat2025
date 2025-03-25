@@ -11,6 +11,12 @@ const morgan = require("morgan");
 const productRouter = require("./routers/product");
 const categoryRouter = require("./routers/category");
 const authRouter = require("./routers/auth.router");
+const cartRouter = require("./routers/cart");
+const productRouter = require("./routers/product");
+const categoryRouter = require("./routers/category");
+const authRouter = require("./routers/auth.router");
+const orderRouter = require("./routers/order");
+const customerRoutes = require("./routers/customerRoutes");
 
 
 // Database connection
@@ -30,7 +36,9 @@ const { connectDB } = require("./config/db");
  // Routes
  app.use("/api", productRouter);
  app.use("/api", categoryRouter);
- app.use("/api", authRouter);
+ app.use("/api", authRouter);app.use("/api", cartRouter);
+ app.use("/api", orderRouter);
+ app.use("/api", customerRoutes);
  
  
  // Start servers
