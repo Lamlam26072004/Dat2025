@@ -4,7 +4,6 @@ const mongoose = require("mongoose");
 
 const cors = require("cors");
 const dotenv = require("dotenv");
-console.log("🔍 Checking DB_URI:", process.env.DB_URI);
 const morgan = require("morgan");
 
 // Import routes
