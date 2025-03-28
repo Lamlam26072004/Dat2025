@@ -14,6 +14,8 @@ const cartRouter = require("./routers/cart");
 const authRouter = require("./routers/auth.router");
 const customerRoutes = require("./routers/customerRoutes");
 const paymentRoutes = require("./routers/paymentRoutes");
+const orderRouter = require("./routers/order");
+
 
 
 // Database connection
@@ -37,6 +39,7 @@ const { connectDB } = require("./config/db");
  app.use("/api", customerRoutes);
  app.use("/api", paymentRoutes);
  app.use("/api", cartRouter);
+ app.use("/api", orderRouter);
  
  
  // Start servers
