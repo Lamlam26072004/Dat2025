@@ -17,6 +17,7 @@ const paymentRoutes = require("./routers/paymentRoutes");
 const orderRouter = require("./routers/order");
 const blogRoutes = require("./routers/blog");
 const commentRouter = require("./routers/comment");
+const couponRoutes = require("./routers/coupon");
 
 
 
@@ -37,13 +38,14 @@ const { connectDB } = require("./config/db");
  // Routes
  app.use("/api", productRouter);
  app.use("/api", categoryRouter);
- app.use("/api", authRouter);app.use("/api", cartRouter);
+ app.use("/api", authRouter);
  app.use("/api", customerRoutes);
  app.use("/api", paymentRoutes);
  app.use("/api", cartRouter);
  app.use("/api", orderRouter);
  app.use("/api", blogRoutes);
  app.use("/api", commentRouter);
+ app.use("/api", couponRoutes);
  
  
  // Start servers
