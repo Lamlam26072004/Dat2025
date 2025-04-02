@@ -18,6 +18,7 @@ const orderRouter = require("./routers/order");
 const blogRoutes = require("./routers/blog");
 const commentRouter = require("./routers/comment");
 const couponRoutes = require("./routers/coupon");
+const locationRoutes = require("./routers/address");
 
 
 
@@ -46,6 +47,7 @@ const { connectDB } = require("./config/db");
  app.use("/api", blogRoutes);
  app.use("/api", commentRouter);
  app.use("/api", couponRoutes);
+ app.use("/api", locationRoutes);
  
  
  // Start servers
