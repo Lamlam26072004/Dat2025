@@ -7,22 +7,27 @@ const CryptoJS = require("crypto-js");
 const moment = require("moment");
 const axios = require("axios");
 require("dotenv").config();
+const { config, order2 } = require("../zalo_pay/config");
 const cron = require('node-cron');
 const Coupon = require("../models/coupon");
 const User = require("../models/user");
 const { ObjectId } = require('mongodb');
 
 
+const ZALOPAY_ID_APP = process.env.ZALOPAY_ID_APP;
+const ZALOPAY_KEY1 = process.env.ZALOPAY_KEY1;
+const ZALOPAY_ENDPOINT = process.env.ZALOPAY_ENDPOINT;
 
 const createOrder = async (req, res) => {
+  return new Promise(async (resolve, reject) => {
     try {
       const { userId, items, totalPrice, customerInfo, paymentMethod, shippingMessageDisplay, discount, couponCode } = req.body;
-  
+
       const order = await Order.create({
         userId,
         items: items.map((item) => ({
           productId: item.productId,
-          slug: item.slug || `product-${item.productId}`,  
+          slug: item.slug || `product-${item.productId}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,  
           name: item.name,
           price: item.price,
           quantity: item.quantity,
@@ -40,50 +45,109 @@ const createOrder = async (req, res) => {
         shippingMessageDisplay,
         discount,
       });
-  
+
       for (const item of items) {
         const product = await Product.findById(item.productId);
-        const variant = product.variants.find((variant) => variant.sku === item.variantId);
-        
+        const variant = product.variants.find(
+          (variant) => variant.sku === item.variantId
+        );
+      
         if (variant) {
           await Product.updateOne(
             { _id: item.productId, "variants.sku": item.variantId },
             { $inc: { "variants.$.countInStock": -item.quantity } },
             { new: true }
           );
-        }
+        } 
       }
-  
-      const user = await User.findById(userId);
+
+      const Id = new ObjectId(order.userId); // Chuyển sang ObjectId
+      const user = await User.findOne({ _id: Id });
+
       if (!user || !user.email) {
         throw new Error('User not found or email is missing.');
       }
-  
-      Mail.sendOrderConfirmation(user.email, order);
-  
+      const email = user.email;
+
+      Mail.sendOrderConfirmation(email, order);
+
       if (couponCode) {
         const coupon = await Coupon.findOne({ code: couponCode });
-        if (!coupon || !coupon.isActive || coupon.expirationDate < new Date()) {
-          return res.status(400).json({ error: "Invalid or expired coupon code" });
+        if (!coupon) {
+          return res.status(400).json({ error: "Invalid coupon code" });
         }
-  
+      
+        if (!coupon.isActive || coupon.expirationDate < new Date()) {
+          return res.status(400).json({ error: "Coupon has expired or is inactive" });
+        }
+      
         coupon.usageCount += 1;
         coupon.usedBy.push(userId);
         await coupon.save();
+      }          
+
+      if (paymentMethod === "cod") {
+        return res.status(200).json({ 
+          message: "Order created successfully", 
+          orderId: order._id ,          
+        });
       }
-  
-      return res.status(200).json({ 
-        message: "Order created successfully", 
-        orderId: order._id 
-      });
-  
+      if (paymentMethod === "online") {
+        const transID = Math.floor(Math.random() * 1000000);
+        const payment = {
+          app_id: ZALOPAY_ID_APP,
+          app_trans_id: `${moment().format("YYMMDD")}_${order._id}`,
+          app_user: order._id,
+          app_time: Date.now(),
+          item: JSON.stringify(items),
+          embed_data: JSON.stringify({
+            redirecturl: "http://localhost:5173/thanks",
+          }),
+          amount: +totalPrice,
+          description: `Pay for OrderId #${transID}`,
+          bank_code: "",
+          callback_url: "https://b153-42-114-151-28.ngrok-free.app/api/callback",
+        };
+
+        const dataEncode =
+          ZALOPAY_ID_APP +
+          "|" +
+          payment.app_trans_id +
+          "|" +
+          payment.app_user +
+          "|" +
+          payment.amount +
+          "|" +
+          payment.app_time +
+          "|" +
+          payment.embed_data +
+          "|" +
+          payment.item;
+        payment.mac = CryptoJS.HmacSHA256(dataEncode, ZALOPAY_KEY1).toString();
+
+        try {
+          const { data } = await axios.post(ZALOPAY_ENDPOINT, null, {
+            params: payment,
+          });
+          if (!data?.order_url) {
+            throw new Error("Error when payment");
+          }
+
+          order.transactionid = payment.app_trans_id;
+          await order.save();
+          return res.status(200).json(data.order_url);
+        } catch (error) {
+          console.error("Error creating ZaloPay order:", error.message);
+          throw new Error("Failed to initiate payment");
+        }
+      }
+      return res.end();
     } catch (error) {
       console.error("Error creating order:", error.message);
       return res.status(500).json({ error: error.message });
     }
-  };
-  
-
+  });
+};
 
 const countOrdersByStatus = async () => {
   const orders = await Order.aggregate([

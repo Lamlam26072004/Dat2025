@@ -86,7 +86,6 @@ const addItemToCart = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 const deleteItemFromCart = async (req, res) => {
   const { userId } = req.params;  // Lấy userId từ params
   const { variantIds } = req.body;  // Lấy mảng SKU từ body request
@@ -111,7 +110,7 @@ const deleteItemFromCart = async (req, res) => {
   }
 };
 
- const increaseProductQuantity = async (req , res) => {
+const increaseProductQuantity = async (req, res) => {
   const { userId, productId, variantId } = req.body;
 
   try {
@@ -158,8 +157,7 @@ const deleteItemFromCart = async (req, res) => {
 };
 
 
- 
- const decreaseProductQuantity = async (req , res) => {
+const decreaseProductQuantity = async (req, res) => {
   const { userId, productId, variantId, confirm } = req.body;  
   try {
     let cart = await Cart.findOne({ userId });
@@ -201,9 +199,7 @@ const deleteItemFromCart = async (req, res) => {
   }
 };
 
-
-
- const updateProductQuantity = async (req , res) => {
+const updateProductQuantity = async (req, res) => {
   const { userId, productId, variantId, quantity } = req.body;
   try {
     let cart = await Cart.findOne({ userId });
@@ -246,12 +242,11 @@ const deleteItemFromCart = async (req, res) => {
   }
 };
 
- module.exports = {
-    getCartByUserId,
-    addItemToCart,
-    deleteItemFromCart,
-    increaseProductQuantity,
-    decreaseProductQuantity,
-    updateProductQuantity,
-  };
-
+module.exports = {
+  getCartByUserId,
+  addItemToCart,
+  deleteItemFromCart,
+  increaseProductQuantity,
+  decreaseProductQuantity,
+  updateProductQuantity,
+};

@@ -1,24 +1,12 @@
 const express = require("express");
 const router = express.Router();
-
-// Kiểm tra xem paymentController có được import đúng không
 const paymentController = require("../controllers/paymentController");
 
-if (!paymentController || !paymentController.updatePaymentStatusOnFailure) {
-    console.error("Error: updatePaymentStatusOnFailure is undefined. Check the import path and export in paymentController.js");
-} else {
-    console.log("updatePaymentStatusOnFailure loaded successfully");
-}
-
+//router.post("/payment", paymentController.payment);
+router.post("/callback", paymentController.callback);
 router.post(
-  "/update-payment-status",
-  async (req, res, next) => {
-    try {
-      await paymentController.updatePaymentStatusOnFailure(req, res);
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
+    "/update-payment-status",
+    paymentController.updatePaymentStatusOnFailure
+  );
+router.post("/retry-payment", paymentController.retryPayment);
 module.exports = router;

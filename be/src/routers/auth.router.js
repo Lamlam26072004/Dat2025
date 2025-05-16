@@ -21,6 +21,6 @@ router.get("/users", getAllUsers);
 router.get("/user/info/:userId", getUserInfo);
 router.put("/user/update/:userId", updateAccount);
 router.put("/user/update", updateUser);
-router.post("/verify-old-password", verifyOldPassword);
 
+router.post("/verify-old-password", verifyOldPassword);
 module.exports = router;
