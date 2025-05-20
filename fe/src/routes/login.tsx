@@ -15,7 +15,7 @@ export const Route = createFileRoute('/login')({
 });
 
 function Login() {
-  const [loginError, setLoginError] = useState<string | null>(null);
+  const [ , setLoginError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
   const {
