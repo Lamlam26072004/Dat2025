@@ -9,6 +9,9 @@ export const Route = createFileRoute('/_layout')({
         <Header />
         <Outlet />
       </div>
+      {/* <div>
+        <ChatBot />
+      </div> */}
       <Footer />
     </div>
   ),

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import instance from '../../api/axiosIntance';
+import instance from '@/api/axiosIntance';
 import { QUERY_KEY } from '../stores/key';
 import { useEffect, useState } from 'react';
 
