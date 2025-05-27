@@ -1,4 +1,4 @@
-import instance from '../../api/axiosIntance';
+import instance from '@/api/axiosIntance';
 import { toast } from '@medusajs/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
